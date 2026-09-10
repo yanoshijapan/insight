@@ -120,15 +120,21 @@ function buildCard(d, editable){
   } else {
     const copyBtn = card.querySelector('[data-act="copy"]');
     if (copyBtn) copyBtn.addEventListener("click", () => {
-      const text = `Konten reels IG tanggal ${fmtDate(d.posted)}, dengan judul ${d.title}, memiliki naskah script ${d.script}, dan dengan durasi video ${d.duration} detik. Insight ini di unduh pada tanggal ${fmtDate(d.downloaded)} dan memperoleh insight sebagai berikut :
-1. Tayangan : ${d.views}
-2. Pemirsa : ${d.reach}
-3. Waktu Tonton Rata-rata : ${d.watchtime}
+      const text = `Konten reels IG tanggal ${fmtDate(d.posted)}, dengan judul "${d.title || "-"}", memiliki naskah script :
+
+"${d.script || "-"}", 
+
+dan dengan durasi video ${d.duration || "-"} detik. 
+Insight ini di unduh pada tanggal ${fmtDate(d.downloaded)} dan memperoleh insight sebagai berikut :
+1. Tayangan : ${d.views || "-"}
+2. Pemirsa : ${d.reach || "-"}
+3. Waktu Tonton Rata-rata : ${d.watchtime || "-"}
 4. Suka : ${fmtNum(d.likes)}
 5. Komentar : ${fmtNum(d.comments)}
 6. Posting Ulang : ${fmtNum(d.reposts)}
 7. Dibagikan : ${fmtNum(d.shares)}
 8. Disimpan : ${fmtNum(d.saves)}
+
 Analisa mendalam dan beri penilaian terhadap performa konten ini. Berikan kesimpulan dari hasil analisa anda dan berikan ide dan saran untuk menjadi bahan evaluasi konten berikutnya.`;
       navigator.clipboard.writeText(text).then(()=> toast("Disalin! Siap dipaste","success"));
     });
