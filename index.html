@@ -16,7 +16,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Reelsight">
-<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="icon" href="icons/icon-512.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 </head>
 <body>
@@ -58,6 +58,11 @@
     <span class="dot"></span> Tersimpan otomatis
   </div>
 </header>
+
+<!-- LOADING BAR TOP (Untuk Lihat Insight) -->
+<div class="top-loading-bar" id="topLoadingBar" hidden>
+  <div class="top-loading-progress"></div>
+</div>
 
 <!-- ===== TAB: INPUT INSIGHT ===== -->
 <main class="tab-panel" id="panel-input">
@@ -182,6 +187,12 @@
           <label>Nama / judul konten <span class="req">*</span></label>
           <input type="text" id="f_title" placeholder="Contoh: Tips skincare malam hari">
         </div>
+        
+        <!-- KOLOM SCRIPT BARU -->
+        <div class="field full">
+          <label>Script / Naskah Konten</label>
+          <textarea id="f_script" rows="3" placeholder="Masukkan script / naskah konten disini..."></textarea>
+        </div>
 
         <div class="field">
           <label>Reel diposting</label>
@@ -204,6 +215,11 @@
         <div class="field">
           <label>Pemirsa</label>
           <input type="text" id="f_reach" placeholder="cth. 10,1 rb" inputmode="decimal">
+        </div>
+				
+				<div class="field">
+          <label>Durasi video (detik)</label>
+          <input type="text" id="f_duration" placeholder="cth. 15" inputmode="decimal">
         </div>
 
         <div class="field">
