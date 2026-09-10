@@ -9,10 +9,10 @@ const LS_FORMDRAFT= "reelsight_formdraft_v1";    // in-progress modal form (auto
 const LS_SHEETCACHE = "reelsight_sheetcache_v1"; // last fetched data from spreadsheet
 
 /* ---------- State ---------- */
-let drafts = loadJSON(LS_DRAFTS, []);          // [{id,title,posted,downloaded,caption,views,reach,watchtime,likes,comments,reposts,shares,saves,image}]
-let sheetData = loadJSON(LS_SHEETCACHE, []);   // rows fetched from google sheet
-let currentEditId = null;                      // id being edited, or null = new
-let currentImageDataUrl = null;                // image currently in modal (base64)
+let drafts = loadJSON(LS_DRAFTS, []);          
+let sheetData = loadJSON(LS_SHEETCACHE, []);   
+let currentEditId = null;                      
+let currentImageDataUrl = null;                
 let activeTab = "input";
 
 /* ---------- Helpers ---------- */
@@ -58,6 +58,9 @@ function fmtDate(d){
     return dt.toLocaleDateString("id-ID", { day:"numeric", month:"short", year:"numeric" });
   }catch(e){ return d; }
 }
+function escapeHtml(s){
+  return String(s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
 
 /* ==========================================================================
    TABS
@@ -69,7 +72,9 @@ $all(".tab-btn").forEach(btn=>{
     $("#panel-input").classList.toggle("hidden", activeTab!=="input");
     $("#panel-lihat").classList.toggle("hidden", activeTab!=="lihat");
     $("#appFooter").classList.toggle("hide", activeTab!=="input");
-    if(activeTab === "lihat" && sheetData.length === 0){
+    
+    // Otomatis fetch dari sheet dengan loading bar ketika membuka tab Lihat Insight
+    if(activeTab === "lihat"){
       fetchSheetData();
     }
   });
@@ -83,7 +88,6 @@ function renderDrafts(){
   grid.querySelectorAll(".insight-card").forEach(n=>n.remove());
   $("#draftEmptyHint").hidden = drafts.length > 0;
 
-  // newest first
   const ordered = [...drafts].sort((a,b)=> (b._createdAt||0) - (a._createdAt||0));
   ordered.forEach((d, i)=>{
     const card = buildCard(d, true);
@@ -107,27 +111,54 @@ function buildCard(d, editable){
     ? `<img class="thumb" src="${d.image}" alt="${escapeHtml(d.title||'insight')}">`
     : `<div class="thumb-fallback">🎬</div>`;
 
-  card.innerHTML = `
-    ${img}
-    <div class="card-body">
-      <div class="card-date">${fmtDate(d.posted)}</div>
-      <div class="card-title">${escapeHtml(d.title || "(Tanpa judul)")}</div>
+  let detailsHtml = "";
+  if (!editable) {
+    // Mode Detail Penuh untuk "Lihat Insight"
+    detailsHtml = `
+      ${d.script ? `<div class="card-script">${escapeHtml(d.script)}</div>` : ""}
+      <div class="card-details-list">
+        <div class="card-detail-item"><span>Durasi Video</span><b>${d.duration ? d.duration + ' dtk' : "-"}</b></div>
+        <div class="card-detail-item"><span>Tayangan</span><b>${d.views || "-"}</b></div>
+        <div class="card-detail-item"><span>Pemirsa</span><b>${d.reach || "-"}</b></div>
+        <div class="card-detail-item"><span>Waktu Tonton (Rata-rata)</span><b>${d.watchtime ? d.watchtime + ' dtk' : "-"}</b></div>
+        <div class="card-detail-item"><span>Suka</span><b>${fmtNum(d.likes)}</b></div>
+        <div class="card-detail-item"><span>Komentar</span><b>${fmtNum(d.comments)}</b></div>
+        <div class="card-detail-item"><span>Posting Ulang</span><b>${fmtNum(d.reposts)}</b></div>
+        <div class="card-detail-item"><span>Dibagikan</span><b>${fmtNum(d.shares)}</b></div>
+        <div class="card-detail-item"><span>Disimpan</span><b>${fmtNum(d.saves)}</b></div>
+      </div>
+      <div class="card-actions">
+        <button class="card-copy" data-act="copy">📋 Salin Prompt Analisa</button>
+      </div>
+    `;
+  } else {
+    // Mode Draft Ringkas
+    detailsHtml = `
       <div class="card-stats">
         <div class="card-stat"><b>${d.views || "0"}</b><span>Tayangan</span></div>
         <div class="card-stat"><b>${fmtNum(d.likes)}</b><span>Suka</span></div>
         <div class="card-stat"><b>${fmtNum(d.saves)}</b><span>Disimpan</span></div>
       </div>
-      ${editable ? `
       <div class="card-actions">
         <button class="card-edit" data-act="edit">✎ Edit</button>
         <button class="card-delete" data-act="delete">🗑 Hapus</button>
-      </div>` : ""}
+      </div>
+    `;
+  }
+
+  card.innerHTML = `
+    ${img}
+    <div class="card-body">
+      <div class="card-date">${fmtDate(d.posted)}</div>
+      <div class="card-title">${escapeHtml(d.title || "(Tanpa judul)")}</div>
+      ${detailsHtml}
     </div>
   `;
 
   if(d.image){
     card.querySelector(".thumb").addEventListener("click", ()=> openLightbox(d.image));
   }
+  
   if(editable){
     card.querySelector('[data-act="edit"]').addEventListener("click", ()=> openModal(d.id));
     card.querySelector('[data-act="delete"]').addEventListener("click", ()=>{
@@ -139,19 +170,47 @@ function buildCard(d, editable){
         toast("Insight dihapus", "error");
       }
     });
-  }
-  return card;
-}
+  } else {
+    // Fitur klik untuk Copy Text Template di Mode Lihat Insight
+    const copyBtn = card.querySelector('[data-act="copy"]');
+    if (copyBtn) {
+      copyBtn.addEventListener("click", () => {
+        const templateText = `Konten reels IG tanggal ${fmtDate(d.posted)}, dengan judul "${d.title || "-"}", memiliki naskah script :
 
-function escapeHtml(s){
-  return String(s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-}
+"${d.script || "-"}", 
+
+dan dengan durasi video ${d.duration || "-"} detik. 
+Insight ini di unduh pada tanggal ${fmtDate(d.downloaded)} dan memperoleh insight sebagai berikut :
+1. Tayangan : ${d.views || "-"}
+2. Pemirsa : ${d.reach || "-"}
+3. Waktu Tonton Rata-rata : ${d.watchtime || "-"}
+4. Suka : ${fmtNum(d.likes)}
+5. Komentar : ${fmtNum(d.comments)}
+6. Posting Ulang : ${fmtNum(d.reposts)}
+7. Dibagikan : ${fmtNum(d.shares)}
+8. Disimpan : ${fmtNum(d.saves)}
+
+Analisa mendalam dan beri penilaian terhadap performa konten ini. Berikan kesimpulan dari hasil analisa anda dan berikan ide dan saran untuk menjadi bahan evaluasi konten berikutnya.`;
+
+        navigator.clipboard.writeText(templateText).then(() => {
+          toast("Berhasil disalin! Siap di-paste ke ChatGPT/Claude", "success");
+        }).catch(err => {
+          console.error(err);
+          toast("Gagal menyalin ke clipboard", "error");
+        });
+      });
+    }
+  }
+
+  return card;
+} // Akhir dari fungsi buildCard
 
 /* ==========================================================================
    MODAL — open/close, image handling, autosave of in-progress form
    ========================================================================== */
 const overlay = $("#modalOverlay");
-const fields = ["title","posted","downloaded","caption","views","reach","watchtime","likes","comments","reposts","shares","saves"];
+// Mendaftarkan field "script" baru
+const fields = ["title","script","posted","downloaded","caption","views","reach","duration","watchtime","likes","comments","reposts","shares","saves"];
 
 function openModal(editId=null){
   currentEditId = editId;
@@ -165,7 +224,6 @@ function openModal(editId=null){
     setImage(d.image || null, false);
   } else {
     $("#modalTitle").textContent = "Tambah Insight Baru";
-    // try restore autosaved in-progress draft
     const saved = loadJSON(LS_FORMDRAFT, null);
     if(saved && saved._id === "new-draft"){
       fields.forEach(f=> $("#f_"+f).value = saved[f] ?? "");
@@ -191,10 +249,9 @@ $("#cancelModalBtn").addEventListener("click", closeModal);
 overlay.addEventListener("click", (e)=>{ if(e.target === overlay) closeModal(); });
 document.addEventListener("keydown", (e)=>{ if(e.key === "Escape" && !overlay.hidden) closeModal(); });
 
-/* autosave the in-progress form every time user types (only for NEW entries) */
 let formDraftTimer = null;
 function scheduleFormDraftSave(){
-  if(currentEditId) return; // don't autosave over an existing card's identity; edits commit on Save
+  if(currentEditId) return; 
   clearTimeout(formDraftTimer);
   formDraftTimer = setTimeout(()=>{
     const obj = { _id: "new-draft" };
@@ -234,7 +291,6 @@ function handleImageFile(file){
   const reader = new FileReader();
   reader.onload = ()=>{
     setImage(reader.result, true);
-    // auto-trigger scan immediately after upload
     runScan();
   };
   reader.readAsDataURL(file);
@@ -270,7 +326,7 @@ $("#lightboxClose").addEventListener("click", ()=> $("#lightbox").hidden = true)
 $("#lightbox").addEventListener("click", e=>{ if(e.target.id === "lightbox") $("#lightbox").hidden = true; });
 
 /* ==========================================================================
-   OCR SCAN — Tesseract.js + Indonesian label parsing
+   OCR SCAN
    ========================================================================== */
 $("#scanBtn").addEventListener("click", runScan);
 $("#rescanBtn").addEventListener("click", runScan);
@@ -314,29 +370,19 @@ async function runScan(){
   }
 }
 
-/**
- * Parse raw OCR text from an Instagram-style insight screenshot (Indonesian labels)
- * into structured fields. Heuristic + regex based; not guaranteed 100% accurate —
- * user can correct manually or hit "Pindai ulang".
- */
 function parseInsightText(raw){
   const text = raw.replace(/\r/g, "");
   const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
-  const flat = lines.join(" \n ");
-
   const out = {};
 
-  // ---- dates: "diposting" & "diunduh" ----
   const monthMap = "Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des|January|February|March|April|May|June|July|August|September|October|November|December";
   const datePattern = new RegExp(`(\\d{1,2}\\s+(?:${monthMap})[a-z]*\\.?\\s+\\d{4}|\\d{1,2}[\\/\\-]\\d{1,2}[\\/\\-]\\d{2,4})`, "i");
 
   out.posted = extractNear(lines, /post(ing)?|diposting/i, datePattern) ;
   out.downloaded = extractNear(lines, /diunduh|di ?unduh|unduh/i, datePattern);
 
-  // ---- caption / keterangan ----
   const capIdx = lines.findIndex(l=>/keterangan/i.test(l));
   if(capIdx !== -1){
-    // caption is often the label's own line remainder, or the next 1-2 lines
     let cap = lines[capIdx].replace(/keterangan\s*[:\-]?/i, "").trim();
     if(!cap && lines[capIdx+1] && !/tayangan|pemirsa|waktu|suka|komentar/i.test(lines[capIdx+1])){
       cap = lines[capIdx+1];
@@ -344,14 +390,10 @@ function parseInsightText(raw){
     out.caption = cap;
   }
 
-  // ---- numeric metrics with "rb"/"jt" style (tayangan, pemirsa) ----
   out.views = extractMetric(lines, /tayangan/i);
   out.reach = extractMetric(lines, /pemirsa/i);
-
-  // ---- watch time (seconds, decimal) ----
   out.watchtime = extractMetric(lines, /waktu tonton|rata-?rata/i, /([\d.,]+)\s*(detik|s)?/i);
 
-  // ---- plain integer counters ----
   out.likes    = extractInt(lines, /^suka\b|\bsuka$/i);
   out.comments = extractInt(lines, /komentar/i);
   out.reposts  = extractInt(lines, /posting ulang/i);
@@ -397,7 +439,6 @@ function extractInt(lines, labelRe){
 }
 
 function normalizeDate(str){
-  // try to convert "12 Jan 2025" or "12/01/2025" into yyyy-mm-dd for <input type=date>
   const months = {jan:1,feb:2,mar:3,apr:4,mei:5,may:5,jun:6,jul:7,agu:8,aug:8,sep:9,okt:10,oct:10,nov:11,des:12,dec:12};
   let m = str.match(/(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})/);
   if(m){
@@ -418,7 +459,7 @@ function applyParsedData(data){
     if(!el) return;
     const val = data[k];
     if(val === "" || val === 0 && !["likes","comments","reposts","shares","saves"].includes(k)) {
-      if(val === "" ) return; // don't overwrite with blank
+      if(val === "" ) return; 
     }
     if(val !== "" && val !== undefined && val !== null){
       el.value = val;
@@ -430,7 +471,7 @@ function applyParsedData(data){
 }
 
 /* ==========================================================================
-   SAVE CARD (add or update in drafts[])
+   SAVE CARD 
    ========================================================================== */
 $("#saveCardBtn").addEventListener("click", ()=>{
   const title = $("#f_title").value.trim();
@@ -480,7 +521,7 @@ async function sendAllToSheet(){
   try{
     const res = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight on Apps Script
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: "append", rows: drafts })
     });
     const json = await res.json().catch(()=>({ ok:true }));
@@ -490,7 +531,7 @@ async function sendAllToSheet(){
     drafts = [];
     saveJSON(LS_DRAFTS, drafts);
     renderDrafts();
-    sheetData = []; // force refresh next time "lihat insight" opened
+    sheetData = []; 
     saveJSON(LS_SHEETCACHE, sheetData);
   }catch(err){
     console.error(err);
@@ -507,12 +548,17 @@ async function sendAllToSheet(){
    ========================================================================== */
 async function fetchSheetData(){
   const statusEl = $("#sheetStatus");
+  const loadingBar = $("#topLoadingBar");
+  
   if(typeof APPS_SCRIPT_URL === "undefined" || APPS_SCRIPT_URL.includes("PASTE_URL")){
     statusEl.textContent = "URL Apps Script belum di-set di config.js — lihat README.";
     renderSheetGrid();
     return;
   }
+  
   statusEl.textContent = "Memuat data dari spreadsheet...";
+  if(loadingBar) loadingBar.hidden = false;
+  
   try{
     const res = await fetch(APPS_SCRIPT_URL + "?action=list");
     const json = await res.json();
@@ -522,7 +568,10 @@ async function fetchSheetData(){
   }catch(err){
     console.error(err);
     statusEl.textContent = "Gagal memuat dari spreadsheet — menampilkan data tersimpan terakhir.";
+  }finally{
+    if(loadingBar) loadingBar.hidden = true;
   }
+  
   renderSheetGrid();
 }
 $("#refreshSheetBtn").addEventListener("click", fetchSheetData);
@@ -549,7 +598,7 @@ function renderSheetGrid(){
   const sortBy = $("#sortSelect").value;
 
   let list = sheetData.filter(d=>{
-    if(kw && !(String(d.title||"").toLowerCase().includes(kw) || String(d.caption||"").toLowerCase().includes(kw))) return false;
+    if(kw && !(String(d.title||"").toLowerCase().includes(kw) || String(d.caption||"").toLowerCase().includes(kw) || String(d.script||"").toLowerCase().includes(kw))) return false;
     if(from && d.posted && d.posted < from) return false;
     if(to && d.posted && d.posted > to) return false;
     return true;
@@ -579,7 +628,7 @@ function renderSheetGrid(){
 });
 
 /* ==========================================================================
-   PWA — service worker registration + install prompt
+   PWA
    ========================================================================== */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
