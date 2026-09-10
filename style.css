@@ -39,9 +39,6 @@
 *{ box-sizing: border-box; }
 html{ scroll-behavior: smooth; }
 
-/* The [hidden] attribute must always win over component display rules
-   (e.g. .modal-overlay / .lightbox / .dropzone-actions set display:flex),
-   otherwise elements that should start hidden render visible on load. */
 [hidden]{ display: none !important; }
 
 body{
@@ -71,7 +68,7 @@ input, textarea, select{ font-family: inherit; }
 }
 
 /* ==========================================================================
-   HEADER
+   HEADER & LOADING BAR
    ========================================================================== */
 .app-header{
   position: fixed;
@@ -85,6 +82,28 @@ input, textarea, select{ font-family: inherit; }
   backdrop-filter: blur(14px) saturate(160%);
   border-bottom: 1px solid var(--line);
   z-index: 50;
+}
+
+.top-loading-bar {
+  position: fixed;
+  top: var(--header-h);
+  left: 0; right: 0;
+  height: 3px;
+  background: transparent;
+  z-index: 60;
+  overflow: hidden;
+}
+.top-loading-progress {
+  width: 50%;
+  height: 100%;
+  background: var(--primary);
+  animation: loadingIndeterminate 1.5s infinite linear;
+  transform-origin: 0% 50%;
+}
+@keyframes loadingIndeterminate {
+  0% { transform: translateX(-100%) scaleX(0.2); }
+  50% { transform: translateX(0%) scaleX(0.5); }
+  100% { transform: translateX(200%) scaleX(0.2); }
 }
 
 .brand{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
@@ -192,9 +211,6 @@ input, textarea, select{ font-family: inherit; }
   gap: 18px;
 }
 
-/* ==========================================================================
-   ADD TILE
-   ========================================================================== */
 .add-tile{
   display: flex;
   flex-direction: column;
@@ -312,8 +328,58 @@ input, textarea, select{ font-family: inherit; }
 .card-delete{ background: var(--pink-light); color: #C43F6B; }
 .card-delete:hover{ background: var(--pink); color: #fff; }
 .card-actions button:active{ transform: scale(.96); }
+.card-copy { 
+  background: var(--teal-light); 
+  color: #0E7C66; 
+  width: 100%; 
+  margin-top: 12px;
+}
+.card-copy:hover { 
+  background: var(--teal); 
+  color: #fff; 
+}
 
+/* ---- Card Details Full (Tab Lihat Insight) ---- */
+.cards-grid.readonly {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
 .cards-grid.readonly .insight-card .card-body{ padding-bottom: 14px; }
+
+.card-script {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: var(--primary-light);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  max-height: 90px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  border-left: 3px solid var(--primary);
+  line-height: 1.4;
+}
+.card-details-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 6px;
+  background: var(--bg);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+}
+.card-detail-item {
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+}
+.card-detail-item b {
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.card-detail-item span {
+  color: var(--ink-soft);
+  margin-bottom: 2px;
+}
 
 /* ==========================================================================
    FILTER BAR (Lihat Insight)
@@ -608,7 +674,7 @@ input, textarea, select{ font-family: inherit; }
 }
 
 /* ==========================================================================
-   LIGHTBOX
+   LIGHTBOX & TOAST
    ========================================================================== */
 .lightbox{
   position: fixed; inset:0;
@@ -629,9 +695,6 @@ input, textarea, select{ font-family: inherit; }
 }
 .lightbox-close:hover{ background: rgba(255,255,255,.15); }
 
-/* ==========================================================================
-   TOAST
-   ========================================================================== */
 .toast{
   position: fixed;
   left: 50%;
