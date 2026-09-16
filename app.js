@@ -376,6 +376,178 @@ function applyParsedData(data){
 }
 
 /* ==========================================================================
+   OCR SCAN (Tesseract) & SMART PARSER
+   ========================================================================== */
+$("#scanBtn").addEventListener("click", runScan);
+
+async function runScan(){
+  if(!currentImageDataUrl) return;
+  const progWrap = $("#scanProgress"), bar = $("#scanProgressBar"), scanBtn = $("#scanBtn");
+
+  scanBtn.disabled = true;
+  progWrap.hidden = false;
+  bar.style.width = "4%";
+
+  try{
+    const result = await Tesseract.recognize(currentImageDataUrl, "ind+eng", {
+      logger: m=>{
+        if(m.status === "recognizing text"){
+          bar.style.width = Math.max(6, Math.round(m.progress*100)) + "%";
+        }
+      }
+    });
+    bar.style.width = "100%";
+    applyParsedData(parseInsightText(result.data.text));
+    toast("Pemindaian selesai — periksa kembali kolom yang terisi", "success");
+  }catch(err){
+    console.error(err);
+    toast("Pemindaian gagal, isi kolom secara manual", "error");
+  }finally{
+    setTimeout(()=>{
+      progWrap.hidden = true;
+      scanBtn.disabled = false;
+    }, 500);
+  }
+}
+
+// Logika cerdas untuk membaca format Screenshot HP maupun format Kolom Desktop
+function parseInsightText(raw) {
+  const text = raw.replace(/\r/g, "");
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  const out = {};
+
+  // --- 1. DATES ---
+  const datePattern = /(\d{1,2}\s+[a-zA-Z]+\.?\s+\d{4}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/;
+  out.posted = findDateNear(lines, /post(ing)?|diposting/i, datePattern);
+  out.downloaded = findDateNear(lines, /diunduh|di ?unduh|unduh/i, datePattern);
+
+  // --- 2. CAPTION ---
+  const capIdx = lines.findIndex(l => /keterangan/i.test(l));
+  if (capIdx !== -1 && lines[capIdx + 1]) {
+    let cap = lines[capIdx].replace(/keterangan\s*[:\-]?/i, "").trim();
+    if (!cap) cap = lines[capIdx + 1];
+    if (lines[capIdx + 2] && /^#/.test(lines[capIdx + 2])) {
+      cap += "\n" + lines[capIdx + 2];
+    }
+    out.caption = cap;
+  }
+
+  // --- 3. METRICS (Smart Column & Inline) ---
+  const knownLabels = [
+    { key: 'views', regex: /tayangan/i },
+    { key: 'reach', regex: /pemirsa/i },
+    { key: 'watchtime', regex: /waktu (tonton|menonton)|rata-?rata/i },
+    { key: 'likes', regex: /^suka\b|\bsuka$/i },
+    { key: 'comments', regex: /komentar/i },
+    { key: 'reposts', regex: /posting ulang/i },
+    { key: 'shares', regex: /dibagikan|bagikan/i },
+    { key: 'saves', regex: /disimpan|simpan/i }
+  ];
+
+  for (let i = 0; i < lines.length; i++) {
+    let foundLabels = [];
+    knownLabels.forEach(lbl => {
+      const match = lines[i].match(lbl.regex);
+      if (match) foundLabels.push({ key: lbl.key, index: match.index, regex: lbl.regex });
+    });
+
+    if (foundLabels.length > 0) {
+      // Urutkan label yang ditemukan dari kiri ke kanan (berdasarkan urutan kolom)
+      foundLabels.sort((a, b) => a.index - b.index);
+
+      // Cari semua format angka baik di baris saat ini maupun baris bawahnya
+      const numRegex = /([\d]+[.,]?[\d]*)\s*(rb|jt|k)?/gi;
+      let inlineNumbers = [...lines[i].matchAll(numRegex)].map(m => m[0]);
+      let nextLineNumbers = lines[i+1] ? [...lines[i+1].matchAll(numRegex)].map(m => m[0]) : [];
+
+      // Strategi A: Jika formatnya Kolom Vertikal (Angka berkumpul sejajar di baris bawah)
+      if (nextLineNumbers.length >= foundLabels.length) {
+        foundLabels.forEach((lbl, idx) => {
+          if (!out[lbl.key]) out[lbl.key] = nextLineNumbers[idx];
+        });
+      }
+      // Strategi B: Jika formatnya Sebaris (Angka berada di sebelah label)
+      else if (inlineNumbers.length >= foundLabels.length) {
+        foundLabels.forEach((lbl, idx) => {
+          if (!out[lbl.key]) out[lbl.key] = inlineNumbers[idx];
+        });
+      }
+      // Strategi C: Fallback untuk HP standar (Pencarian individual)
+      else {
+        foundLabels.forEach(lbl => {
+          if (!out[lbl.key]) {
+            let afterLabel = lines[i].substring(lbl.index).replace(lbl.regex, "");
+            let m = afterLabel.match(/([\d]+[.,]?[\d]*)\s*(rb|jt|k)?/i);
+            if (m) {
+              out[lbl.key] = m[0];
+            } else if (lines[i+1]) {
+              m = lines[i+1].match(/([\d]+[.,]?[\d]*)\s*(rb|jt|k)?/i);
+              if (m) out[lbl.key] = m[0];
+            }
+          }
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function findDateNear(lines, labelRe, dateRe) {
+  for (let i = 0; i < lines.length; i++) {
+    if (labelRe.test(lines[i])) {
+      let str = lines[i] + " " + (lines[i+1]||"") + " " + (lines[i+2]||"");
+      let m = str.match(dateRe);
+      if (m) {
+        const months = {jan:1,feb:2,mar:3,apr:4,mei:5,may:5,jun:6,jul:7,agu:8,aug:8,sep:9,okt:10,oct:10,nov:11,des:12,dec:12};
+        let d = m[0];
+        let dMatch = d.match(/(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})/);
+        if(dMatch){
+          const mo = months[dMatch[2].toLowerCase().slice(0,3)];
+          if(mo) return `${dMatch[3]}-${String(mo).padStart(2,"0")}-${String(dMatch[1]).padStart(2,"0")}`;
+        }
+        dMatch = d.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+        if(dMatch){
+          let yr = dMatch[3].length===2 ? "20"+dMatch[3] : dMatch[3];
+          return `${yr}-${String(dMatch[2]).padStart(2,"0")}-${String(dMatch[1]).padStart(2,"0")}`;
+        }
+        return d;
+      }
+    }
+  }
+  return "";
+}
+
+function applyParsedData(data){
+  Object.keys(data).forEach(k=>{
+    const el = $("#f_"+k);
+    if(!el) return;
+    let val = data[k];
+    
+    // Jangan timpakan inputan kosong jika belum terisi
+    if(val === "" || val === null || val === undefined || (val === 0 && !["likes","comments","reposts","shares","saves"].includes(k))) return;
+
+    // Bersihkan koma dan huruf pada kotak yang dikhususkan untuk Integer murni (cth: likes, comments)
+    if (el.type === "number") {
+      val = String(val).replace(/[^\d]/g, "");
+    }
+
+    if(val !== ""){
+      el.value = val;
+      el.classList.add("filled");
+      setTimeout(()=> el.classList.remove("filled"), 1200);
+    }
+  });
+  
+  // Memicu autosave form secara manual setelah OCR selesai bekerja
+  if(!currentEditId) {
+    const obj = { _id: "new", image: currentImageDataUrl };
+    fieldsInsight.forEach(k=> obj[k] = $("#f_"+k).value);
+    saveJSON(LS_FORMDRAFT, obj);
+    flashSaved();
+  }
+}
+
+/* ==========================================================================
    PLANNER LOGIC
    ========================================================================== */
 const planOverlay = $("#plannerModalOverlay");
