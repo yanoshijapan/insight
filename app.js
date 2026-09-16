@@ -237,6 +237,143 @@ function renderSheetGrid(){
 ["searchInput","dateFrom","dateTo","sortSelect"].forEach(id=> $("#"+id).addEventListener("input", renderSheetGrid));
 $("#refreshSheetBtn").addEventListener("click", fetchSheetData);
 
+/* ==========================================================================
+   OCR SCAN (Tesseract)
+   ========================================================================== */
+$("#scanBtn").addEventListener("click", runScan);
+
+async function runScan(){
+  if(!currentImageDataUrl) return;
+  const progWrap = $("#scanProgress"), bar = $("#scanProgressBar"), scanBtn = $("#scanBtn");
+
+  scanBtn.disabled = true;
+  progWrap.hidden = false;
+  bar.style.width = "4%";
+
+  try{
+    const result = await Tesseract.recognize(currentImageDataUrl, "ind+eng", {
+      logger: m=>{
+        if(m.status === "recognizing text"){
+          bar.style.width = Math.max(6, Math.round(m.progress*100)) + "%";
+        }
+      }
+    });
+    bar.style.width = "100%";
+    applyParsedData(parseInsightText(result.data.text));
+    toast("Pemindaian selesai — periksa kembali kolom yang terisi", "success");
+  }catch(err){
+    console.error(err);
+    toast("Pemindaian gagal, isi kolom secara manual", "error");
+  }finally{
+    setTimeout(()=>{
+      progWrap.hidden = true;
+      scanBtn.disabled = false;
+    }, 500);
+  }
+}
+
+function parseInsightText(raw){
+  const text = raw.replace(/\r/g, "");
+  const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
+  const out = {};
+
+  const monthMap = "Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des|January|February|March|April|May|June|July|August|September|October|November|December";
+  const datePattern = new RegExp(`(\\d{1,2}\\s+(?:${monthMap})[a-z]*\\.?\\s+\\d{4}|\\d{1,2}[\\/\\-]\\d{1,2}[\\/\\-]\\d{2,4})`, "i");
+
+  out.posted = extractNear(lines, /post(ing)?|diposting/i, datePattern) ;
+  out.downloaded = extractNear(lines, /diunduh|di ?unduh|unduh/i, datePattern);
+
+  const capIdx = lines.findIndex(l=>/keterangan/i.test(l));
+  if(capIdx !== -1){
+    let cap = lines[capIdx].replace(/keterangan\s*[:\-]?/i, "").trim();
+    if(!cap && lines[capIdx+1] && !/tayangan|pemirsa|waktu|suka|komentar/i.test(lines[capIdx+1])){
+      cap = lines[capIdx+1];
+    }
+    out.caption = cap;
+  }
+
+  out.views = extractMetric(lines, /tayangan/i);
+  out.reach = extractMetric(lines, /pemirsa/i);
+  out.watchtime = extractMetric(lines, /waktu tonton|rata-?rata/i, /([\d.,]+)\s*(detik|s)?/i);
+
+  out.likes    = extractInt(lines, /^suka\b|\bsuka$/i);
+  out.comments = extractInt(lines, /komentar/i);
+  out.reposts  = extractInt(lines, /posting ulang/i);
+  out.shares   = extractInt(lines, /dibagikan|bagikan/i);
+  out.saves    = extractInt(lines, /disimpan|simpan/i);
+
+  return out;
+}
+
+function extractNear(lines, labelRe, valueRe){
+  for(let i=0;i<lines.length;i++){
+    if(labelRe.test(lines[i])){
+      const window = (lines[i] + " " + (lines[i+1]||"") + " " + (lines[i+2]||""));
+      const m = window.match(valueRe);
+      if(m) return normalizeDate(m[0]);
+    }
+  }
+  return "";
+}
+
+function extractMetric(lines, labelRe, customValRe){
+  const valRe = customValRe || /([\d]{1,3}(?:[.,]\d{1,3})*)\s*(rb|jt|k)?/i;
+  for(let i=0;i<lines.length;i++){
+    if(labelRe.test(lines[i])){
+      const window = lines[i] + " " + (lines[i+1]||"");
+      const cleaned = window.replace(labelRe, "");
+      const m = cleaned.match(valRe);
+      if(m) return m[0].trim();
+    }
+  }
+  return "";
+}
+
+function extractInt(lines, labelRe){
+  for(let i=0;i<lines.length;i++){
+    if(labelRe.test(lines[i])){
+      const window = lines[i] + " " + (lines[i+1]||"");
+      const m = window.match(/(\d[\d.,]*)/);
+      if(m) return parseInt(m[1].replace(/[.,]/g,""), 10) || 0;
+    }
+  }
+  return 0;
+}
+
+function normalizeDate(str){
+  const months = {jan:1,feb:2,mar:3,apr:4,mei:5,may:5,jun:6,jul:7,agu:8,aug:8,sep:9,okt:10,oct:10,nov:11,des:12,dec:12};
+  let m = str.match(/(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})/);
+  if(m){
+    const mo = months[m[2].toLowerCase().slice(0,3)];
+    if(mo) return `${m[3]}-${String(mo).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+  }
+  m = str.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){
+    let yr = m[3].length===2 ? "20"+m[3] : m[3];
+    return `${yr}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+  }
+  return "";
+}
+
+function applyParsedData(data){
+  Object.keys(data).forEach(k=>{
+    const el = $("#f_"+k);
+    if(!el) return;
+    const val = data[k];
+    if(val === "" || val === 0 && !["likes","comments","reposts","shares","saves"].includes(k)) return;
+    if(val !== "" && val !== undefined && val !== null){
+      el.value = val;
+    }
+  });
+  
+  // Memicu autosave secara manual setelah OCR mengisi form
+  if(!currentEditId) {
+    const obj = { _id: "new", image: currentImageDataUrl };
+    fieldsInsight.forEach(k=> obj[k] = $("#f_"+k).value);
+    saveJSON(LS_FORMDRAFT, obj);
+    flashSaved();
+  }
+}
 
 /* ==========================================================================
    PLANNER LOGIC
