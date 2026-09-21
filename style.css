@@ -209,3 +209,22 @@ input, textarea, select{ font-family: inherit; }
 .toast{ position: fixed; left: 50%; bottom: calc(var(--footer-h) + 16px); transform: translate(-50%, 20px); background: var(--ink); color: #fff; padding: 12px 22px; border-radius: var(--radius-pill); font-size: 13.5px; font-weight: 600; opacity: 0; pointer-events: none; transition: transform .3s, opacity .3s; z-index: 300; box-shadow: 0 14px 30px -10px rgba(0,0,0,.4); display: flex; align-items:center; gap:8px; }
 .toast.show{ opacity: 1; transform: translate(-50%, 0); }
 .toast.success{ background: #0E7C66; } .toast.error{ background: #C43F3F; }
+
+.tile-carousel { border-color: rgba(0, 194, 168, 0.4); }
+.insight-card.type-carousel { border-left: 4px solid var(--teal); }
+/* Tombol Aksi & Perbesar Gambar di Modal */
+.dropzone-preview { position: relative; width: 100%; height: 100%; }
+.img-maximize {
+  position: absolute; top: 8px; right: 8px;
+  width: 32px; height: 32px;
+  border-radius: 50%; background: rgba(27,27,47,.6);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px); transition: background .2s; z-index: 10;
+}
+.img-maximize:hover { background: rgba(27,27,47,.9); transform: scale(1.05); }
+
+.dropzone-actions { display: flex; gap: 8px; margin-top: 8px; margin-bottom: 8px; }
+.btn-chip { flex: 1; font-size: 12px; font-weight: 600; padding: 8px 0; border-radius: var(--radius-sm); background: var(--primary-light); color: var(--primary-dark); transition: background .2s; }
+.btn-chip:hover { background: #DED7FF; }
+.btn-chip-danger { background: var(--pink-light); color: #C43F6B; }
+.btn-chip-danger:hover { background: #FFD3E1; }
