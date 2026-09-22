@@ -11,7 +11,11 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#6C5CE7">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="icon" href="icons/icon-512.png" type="image/png">
+<style>
+  /* Tambahan animasi tombol putar video */
+  .clickable-embed:hover { background: #DED7FF !important; transform: scale(1.02); }
+</style>
 </head>
 <body>
 
@@ -34,71 +38,38 @@
   </div>
 
   <nav class="tabs" role="tablist">
-    <button class="tab-btn active" data-tab="input" role="tab">
-      <span class="tab-icon">＋</span> Insight
-      <span class="pending-badge" id="pendingBadge" hidden>0</span>
-    </button>
-    <button class="tab-btn" data-tab="lihat" role="tab">
-      <span class="tab-icon">▤</span> Laporan
-    </button>
-    <button class="tab-btn" data-tab="planner" role="tab">
-      <span class="tab-icon">🗓</span> Planner
-    </button>
+    <button class="tab-btn active" data-tab="input" role="tab"><span class="tab-icon">＋</span> Insight <span class="pending-badge" id="pendingBadge" hidden>0</span></button>
+    <button class="tab-btn" data-tab="lihat" role="tab"><span class="tab-icon">▤</span> Laporan</button>
+    <button class="tab-btn" data-tab="planner" role="tab"><span class="tab-icon">🗓</span> Planner</button>
   </nav>
 
-  <div class="header-status" id="autosaveStatus">
-    <span class="dot"></span> Tersimpan otomatis
-  </div>
+  <div class="header-status" id="autosaveStatus"><span class="dot"></span> Tersimpan otomatis</div>
 </header>
 
-<div class="top-loading-bar" id="topLoadingBar" hidden>
-  <div class="top-loading-progress"></div>
-</div>
+<div class="top-loading-bar" id="topLoadingBar" hidden><div class="top-loading-progress"></div></div>
 
 <!-- TAB 1: INPUT INSIGHT -->
 <main class="tab-panel" id="panel-input">
   <div class="panel-intro">
     <h1>Kumpulkan insight konten kamu</h1>
-    <p>Unggah tangkapan layar insight (Reels / Carousel). Sistem akan membaca angka otomatis. Kirim semuanya ke spreadsheet saat sudah siap.</p>
+    <p>Unggah tangkapan layar insight (Reels / Carousel). Sistem akan membaca angka otomatis.</p>
   </div>
-  <br></br>
+	<br></br>
   <div class="cards-grid" id="draftGrid">
-    <button class="add-tile" id="openAddReelsModal">
-      <span class="add-tile-plus">+</span>
-      <span class="add-tile-label">Insight Reels</span>
-    </button>
-    
-    <button class="add-tile tile-carousel" id="openAddCarouselModal">
-      <span class="add-tile-plus" style="background: var(--teal); box-shadow: 0 12px 28px -10px rgba(0,194,168,.35);">+</span>
-      <span class="add-tile-label" style="color: var(--teal);">Insight Carousel</span>
-    </button>
+    <button class="add-tile" id="openAddReelsModal"><span class="add-tile-plus">+</span><span class="add-tile-label">Insight Reels</span></button>
+    <button class="add-tile tile-carousel" id="openAddCarouselModal"><span class="add-tile-plus" style="background: var(--teal); box-shadow: 0 12px 28px -10px rgba(0,194,168,.35);">+</span><span class="add-tile-label" style="color: var(--teal);">Insight Carousel</span></button>
   </div>
-  
 </main>
 
 <!-- TAB 2: LIHAT INSIGHT (LAPORAN) -->
 <main class="tab-panel hidden" id="panel-lihat">
   <div class="filter-bar">
-	
-		<button class="btn-primary" id="downloadExcelBtn" style="background: var(--teal); box-shadow: 0 10px 22px -10px rgba(0,194,168,.5); white-space: nowrap;" title="Download Data ke Excel">
-      📥 Download Excel
-    </button>
-		
-    <div class="filter-search">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <input type="text" id="searchInput" placeholder="Cari judul, konten, keyword...">
-    </div>
+    <button class="btn-primary" id="downloadExcelBtn" style="background: var(--teal); box-shadow: 0 10px 22px -10px rgba(0,194,168,.5); white-space: nowrap;" title="Download Data ke Excel">📥 Download Excel</button>
+    <div class="filter-search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input type="text" id="searchInput" placeholder="Cari judul, konten, keyword..."></div>
     <div class="filter-field"><label>Dari</label><input type="date" id="dateFrom"></div>
     <div class="filter-field"><label>Sampai</label><input type="date" id="dateTo"></div>
-    <div class="filter-field filter-sort">
-      <label>Urutkan</label>
-      <select id="sortSelect">
-        <option value="terbaru">Input terbaru</option>
-        <option value="watchtime">Waktu tonton (khusus Reels)</option>
-        <option value="likes">Suka terbanyak</option>
-        <option value="views">Tayangan terbanyak</option>
-      </select>
-    </div>
+    <div class="filter-field"><label>Tipe</label><select id="typeFilter"><option value="">Semua Tipe</option><option value="reels">Reels</option><option value="carousel">Carousel</option></select></div>
+    <div class="filter-field filter-sort"><label>Urutkan</label><select id="sortSelect"><option value="terbaru">Input terbaru</option><option value="watchtime">Waktu tonton</option><option value="likes">Suka terbanyak</option><option value="views">Tayangan terbanyak</option></select></div>
     <button class="btn-ghost" id="refreshSheetBtn">↻ Muat ulang</button>
   </div>
   <div class="sheet-status" id="sheetStatus"></div>
@@ -110,29 +81,10 @@
 <main class="tab-panel hidden" id="panel-planner">
   <div class="filter-bar planner-filter-bar">
     <button class="btn-primary" id="openPlanModalBtn" style="white-space: nowrap;">+ Plan Baru</button>
-    <div class="filter-search">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <input type="text" id="planSearchInput" placeholder="Cari judul, objective...">
-    </div>
+    <div class="filter-search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input type="text" id="planSearchInput" placeholder="Cari judul, objective..."></div>
     <div class="filter-field"><label>Tanggal Plan</label><input type="date" id="planDateFilter"></div>
-    <div class="filter-field">
-      <label>Status</label>
-      <select id="planStatusFilter">
-        <option value="">Semua Status</option>
-        <option value="planned">Planned</option>
-        <option value="progress">Progress</option>
-        <option value="done">Done</option>
-        <option value="cancel">Cancel</option>
-      </select>
-    </div>
-    <div class="filter-field">
-      <label>Format</label>
-      <select id="planFormatFilter">
-        <option value="">Semua Format</option>
-        <option value="video">Video</option>
-        <option value="carousel">Carousel</option>
-      </select>
-    </div>
+    <div class="filter-field"><label>Status</label><select id="planStatusFilter"><option value="">Semua Status</option><option value="planned">Planned</option><option value="progress">Progress</option><option value="done">Done</option><option value="cancel">Cancel</option></select></div>
+    <div class="filter-field"><label>Format</label><select id="planFormatFilter"><option value="">Semua Format</option><option value="video">Video</option><option value="carousel">Carousel</option></select></div>
     <button class="btn-ghost" id="refreshPlannerBtn" title="Sync dari Spreadsheet">↻ Sync</button>
   </div>
   <div class="sheet-status" id="plannerStatus"></div>
@@ -140,13 +92,12 @@
   <div class="empty-hint" id="plannerEmptyHint">Belum ada plan konten. Klik <strong>+ Plan Baru</strong> untuk membuat.</div>
 </main>
 
-<!-- FOOTER -->
 <footer class="app-footer" id="appFooter">
   <div class="footer-info"><strong id="footerCount">0</strong> insight siap dikirim</div>
   <button class="btn-primary btn-send" id="sendAllBtn" disabled>Kirim ke Spreadsheet</button>
 </footer>
 
-<!-- MODAL 1: INSIGHT (Digabung untuk Reels & Carousel) -->
+<!-- MODAL INSIGHT -->
 <div class="modal-overlay" id="modalOverlay" hidden>
   <div class="modal">
     <div class="modal-header">
@@ -160,46 +111,35 @@
           <div class="dropzone-empty" id="dropzoneEmpty"><p>Unggah gambar insight</p></div>
           <div class="dropzone-preview" id="dropzonePreview" hidden>
             <img id="previewImg" src="" style="width:100%; height:100%; object-fit:cover;">
-            <!-- Tombol Perbesar Gambar -->
-            <button class="img-maximize" id="maximizeBtn" title="Perbesar gambar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
+            <button class="img-maximize" id="maximizeBtn" title="Perbesar gambar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </div>
         </div>
-        
-        <!-- Tombol Ganti / Hapus -->
         <div class="dropzone-actions" id="dropzoneActions" hidden>
           <button class="btn-chip" id="replaceImgBtn">Ganti gambar</button>
           <button class="btn-chip btn-chip-danger" id="removeImgBtn">Hapus</button>
         </div>
-
         <button class="btn-scan" id="scanBtn" disabled>Pindai otomatis OCR</button>
         <div class="scan-progress" id="scanProgress" hidden><div class="scan-progress-bar" id="scanProgressBar"></div></div>
       </div>
       
       <div class="modal-form-col">
         <input type="hidden" id="f_type" value="reels">
-        
         <div class="field full"><label>Judul konten *</label><input type="text" id="f_title"></div>
+        <div class="field full"><label>Link Konten (opsional)</label><input type="url" id="f_link" placeholder="https://www.instagram.com/..."></div>
         
-        <!-- Khusus Reels -->
         <div class="field full type-reels"><label>Script</label><textarea id="f_script" rows="2"></textarea></div>
         <div class="field full type-reels"><label>Keterangan (caption)</label><textarea id="f_caption" rows="2"></textarea></div>
         <div class="field type-reels"><label>Durasi Video (detik)</label><input type="text" id="f_duration"></div>
         <div class="field type-reels"><label>Waktu Tonton Rata-rata</label><input type="text" id="f_watchtime"></div>
 
-        <!-- Khusus Carousel -->
         <div class="field full type-carousel"><label>Isi Carousel</label><textarea id="f_isi_carousel" rows="2" placeholder="Detail slide 1, 2, dst.."></textarea></div>
         <div class="field type-carousel"><label>Kunjungan Profil *</label><input type="text" id="f_kunjungan"></div>
         <div class="field type-carousel"><label>Mengikuti *</label><input type="text" id="f_mengikuti"></div>
 
-        <!-- Universal (Berlaku untuk keduanya) -->
         <div class="field"><label>Tanggal Posting</label><input type="date" id="f_posted"></div>
         <div class="field"><label>Insight Diunduh</label><input type="date" id="f_downloaded"></div>
-        
         <div class="field"><label>Tayangan *</label><input type="text" id="f_views"></div>
         <div class="field"><label>Pemirsa *</label><input type="text" id="f_reach"></div>
-        
         <div class="field"><label>Suka *</label><input type="number" id="f_likes"></div>
         <div class="field"><label>Komentar *</label><input type="number" id="f_comments"></div>
         <div class="field"><label>Repost *</label><input type="number" id="f_reposts"></div>
@@ -214,41 +154,40 @@
   </div>
 </div>
 
-<!-- MODAL 2: PLANNER -->
+<!-- MODAL PLANNER -->
+<!-- (Disembunyikan kodenya untuk mempersingkat, pastikan Anda merestore modal planner lama Anda jika ada, atau gunakan yang ini) -->
 <div class="modal-overlay" id="plannerModalOverlay" hidden>
   <div class="modal" style="max-width: 600px;">
-    <div class="modal-header">
-      <h2 id="planModalTitle">Tambah Plan Baru</h2>
-      <button class="modal-close" id="planModalCloseBtn">&times;</button>
-    </div>
+    <div class="modal-header"><h2 id="planModalTitle">Tambah Plan Baru</h2><button class="modal-close" id="planModalCloseBtn">&times;</button></div>
     <div class="modal-body" style="grid-template-columns: 1fr; padding-top: 10px;">
       <div class="modal-form-col" style="grid-template-columns: 1fr;">
         <div class="field"><label>Judul Plan Konten <span class="req">*</span></label><input type="text" id="p_title"></div>
-        <div class="field">
-          <label>Format Konten</label>
-          <select id="p_format">
-            <option value="video">Video</option>
-            <option value="carousel">Carousel</option>
-          </select>
-        </div>
+        <div class="field"><label>Format Konten</label><select id="p_format"><option value="video">Video</option><option value="carousel">Carousel</option></select></div>
         <div class="field"><label>Objective (Tujuan)</label><input type="text" id="p_objective"></div>
         <div class="field"><label>Konsep / Arahan Visual</label><textarea id="p_concept" rows="3"></textarea></div>
         <div class="field"><label>Script / Naskah / Copywriting</label><textarea id="p_script" rows="6"></textarea></div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" id="cancelPlanModalBtn">Batal</button>
-      <button class="btn-primary" id="savePlanBtn">Simpan & Backup</button>
-    </div>
+    <div class="modal-footer"><button class="btn-ghost" id="cancelPlanModalBtn">Batal</button><button class="btn-primary" id="savePlanBtn">Simpan & Backup</button></div>
   </div>
 </div>
 
-<div class="lightbox" id="lightbox" hidden>
-  <button class="lightbox-close" id="lightboxClose">&times;</button>
-  <img id="lightboxImg" src="">
+<!-- MODAL EMBED VIDEO (BARU) -->
+<div id="embedOverlay" class="modal-overlay" hidden style="z-index: 10000;">
+   <div class="modal" style="max-width: 420px; padding: 16px; background: #fff; text-align:center; border-radius:16px;">
+     <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:center;">
+        <h3 style="margin:0; font-size:16px; color:var(--text-dark);">Preview Konten</h3>
+        <button id="embedCloseBtn" style="background:var(--gray-light); color:var(--text-main); border:none; border-radius:50%; width:32px; height:32px; font-size:20px; cursor:pointer;">&times;</button>
+     </div>
+     <iframe id="embedFrame" src="" width="100%" height="480" frameborder="0" scrolling="no" style="border-radius:8px; border: 1px solid var(--border);"></iframe>
+     <a id="embedNewTab" href="" target="_blank" style="display:block; margin-top:16px; color:var(--primary); font-weight:600; text-decoration:none;">Buka Link Asli ↗</a>
+   </div>
 </div>
+
+<div class="lightbox" id="lightbox" hidden><button class="lightbox-close" id="lightboxClose">&times;</button><img id="lightboxImg" src=""></div>
 <div class="toast" id="toast"></div>
 
+<!-- Library SheetJS untuk export Excel di browser -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="config.js"></script>
