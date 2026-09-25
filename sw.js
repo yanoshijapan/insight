@@ -7,7 +7,7 @@
  * supaya pengguna lama mendapat versi terbaru (bukan versi cache basi).
  */
 
-const CACHE_VERSION = "v18";
+const CACHE_VERSION = "v19";
 const CACHE_NAME = `reelsight-${CACHE_VERSION}`;
 
 // File "inti" aplikasi — wajib bisa dibuka walau offline
