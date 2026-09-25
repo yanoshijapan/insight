@@ -446,8 +446,13 @@ function toggleTypeFields(activeType) {
 }
 
 function loadEditingRecord(editId, context) {
-  const d = context === "draft" ? drafts.find((x) => x.id === editId) : sheetData.find((x) => x.id === editId);
-  if (!d) return null;
+  const source = context === "draft" ? drafts.find((x) => x.id === editId) : sheetData.find((x) => x.id === editId);
+  if (!source) return null;
+
+  // Kalau ada autosave yang cocok dengan record ini, lanjutkan dari situ (bukan dari data asli)
+  const saved = loadJSON(LS_FORMDRAFT, null);
+  const useDraft = !!(saved && saved._editId === editId && saved._context === context);
+  const d = useDraft ? { ...source, ...saved } : source;
 
   if ($("#modalTitle")) {
     $("#modalTitle").textContent = context === "sheet" ? "Update Data Laporan" : "Edit Insight Draft";
@@ -455,17 +460,19 @@ function loadEditingRecord(editId, context) {
   fillFormFields("f", fieldsInsight, d);
   setImage(d.image || null, false);
   if ($("#f_divisi")) $("#f_divisi").disabled = context === "sheet";
+  if (useDraft) toast("Melanjutkan perubahan yang belum tersimpan", "success");
 
-  return d.type || "reels";
+  return d.type || source.type || "reels";
 }
 
 function loadNewRecordForm(forceType) {
   if ($("#f_divisi")) $("#f_divisi").disabled = false;
 
   const saved = loadJSON(LS_FORMDRAFT, null);
-  if (saved && saved._id === "new" && saved.type === forceType) {
+  if (saved && !saved._editId && saved._context === "draft" && saved.type === forceType) {
     fillFormFields("f", fieldsInsight, saved);
     setImage(saved.image || null, false);
+    toast("Melanjutkan draft yang belum tersimpan", "success");
   } else {
     fillFormFields("f", fieldsInsight, {});
     if ($("#f_type")) $("#f_type").value = forceType;
@@ -500,6 +507,7 @@ function closeModal() {
   if (overlay) overlay.hidden = true;
   document.body.style.overflow = "";
   currentEditId = null;
+  renderResumeBanners();
 }
 
 $("#openAddReelsModal")?.addEventListener("click", () => openModal(null, "reels", "draft"));
@@ -508,8 +516,12 @@ $("#modalCloseBtn")?.addEventListener("click", closeModal);
 $("#cancelModalBtn")?.addEventListener("click", closeModal);
 
 function autosaveInsightDraft() {
-  if (currentEditId) return;
-  const obj = { _id: "new", image: currentImageDataUrl, ...readFormFields("f", fieldsInsight) };
+  const obj = {
+    _editId: currentEditId,
+    _context: $("#f_edit_context")?.value || "draft",
+    image: currentImageDataUrl,
+    ...readFormFields("f", fieldsInsight)
+  };
   saveJSON(LS_FORMDRAFT, obj);
   flashSaved();
 }
@@ -725,7 +737,7 @@ function applyParsedData(data) {
     }
   });
 
-  if (!currentEditId) autosaveInsightDraft();
+  autosaveInsightDraft();
 }
 
 /* ==========================================================================
@@ -748,6 +760,7 @@ async function updateSheetInsight(payload) {
     const idx = sheetData.findIndex((x) => x.id === currentEditId);
     if (idx > -1) sheetData[idx] = { ...sheetData[idx], ...payload };
     saveJSON(LS_SHEETCACHE, sheetData);
+    localStorage.removeItem(LS_FORMDRAFT);
     renderSheetGrid();
     closeModal();
   } catch (e) {
@@ -1075,17 +1088,27 @@ function openPlanModal(editId = null) {
   if (planOverlay) planOverlay.hidden = false;
   document.body.style.overflow = "hidden";
 
+  const saved = loadJSON(LS_PLAN_DRAFT, null);
+  const useDraft = !!(saved && saved._editId === editId);
+
   if (editId) {
-    const d = plannerData.find((x) => x.id === editId);
+    const source = plannerData.find((x) => x.id === editId) || {};
+    const d = useDraft ? { ...source, ...saved } : source;
     if ($("#planModalTitle")) $("#planModalTitle").textContent = "Edit Plan Konten";
-    fillFormFields("p", fieldsPlan, d || {});
+    fillFormFields("p", fieldsPlan, d);
     if ($("#p_divisi")) $("#p_divisi").disabled = true;
+    if (useDraft) toast("Melanjutkan perubahan yang belum tersimpan", "success");
   } else {
     if ($("#p_divisi")) $("#p_divisi").disabled = false;
     if ($("#planModalTitle")) $("#planModalTitle").textContent = "Tambah Plan Baru";
-    fillFormFields("p", fieldsPlan, {});
-    if ($("#p_format")) $("#p_format").value = "video";
-    if ($("#p_divisi")) $("#p_divisi").value = activeDivisiPlanner || "Yanoshi";
+    if (useDraft) {
+      fillFormFields("p", fieldsPlan, saved);
+      toast("Melanjutkan draft yang belum tersimpan", "success");
+    } else {
+      fillFormFields("p", fieldsPlan, {});
+      if ($("#p_format")) $("#p_format").value = "video";
+      if ($("#p_divisi")) $("#p_divisi").value = activeDivisiPlanner || "Yanoshi";
+    }
   }
 }
 
@@ -1093,6 +1116,7 @@ function closePlanModal() {
   if (planOverlay) planOverlay.hidden = true;
   document.body.style.overflow = "";
   plannerEditId = null;
+  renderResumeBanners();
 }
 
 $("#openPlanModalBtn")?.addEventListener("click", () => openPlanModal(null));
@@ -1102,13 +1126,14 @@ planOverlay?.addEventListener("click", (e) => {
   if (e.target === planOverlay) closePlanModal();
 });
 
+function autosavePlanDraft() {
+  const obj = { _editId: plannerEditId, ...readFormFields("p", fieldsPlan) };
+  saveJSON(LS_PLAN_DRAFT, obj);
+  flashSaved();
+}
+
 fieldsPlan.forEach((f) => {
-  $(`#p_${f}`)?.addEventListener("input", () => {
-    if (plannerEditId) return;
-    const obj = { id: "new", ...readFormFields("p", fieldsPlan) };
-    saveJSON(LS_PLAN_DRAFT, obj);
-    flashSaved();
-  });
+  $(`#p_${f}`)?.addEventListener("input", autosavePlanDraft);
 });
 
 $("#savePlanBtn")?.addEventListener("click", () => {
@@ -1137,6 +1162,7 @@ $("#savePlanBtn")?.addEventListener("click", () => {
   }
 
   saveJSON(LS_PLANNER_DATA, plannerData);
+  localStorage.removeItem(LS_PLAN_DRAFT);
   renderPlannerGrid();
   closePlanModal();
   if (savedPlan) syncPlanToSheet(savedPlan);
@@ -1180,6 +1206,99 @@ $("#refreshPlannerBtn")?.addEventListener("click", fetchPlannerData);
 });
 
 /* ==========================================================================
-   11. INIT
+   11. BANNER "LANJUTKAN DRAFT" (autosave lintas tab/refresh/restart)
+   ========================================================================== */
+function resumeInsightDraft() {
+  const d = loadJSON(LS_FORMDRAFT, null);
+  if (!d) return;
+
+  if (d._context === "sheet" && d.divisi) {
+    switchTab("lihat");
+    activeDivisiLaporan = d.divisi;
+    if ($("#laporanDivisiTitle")) $("#laporanDivisiTitle").textContent = "Laporan: " + activeDivisiLaporan;
+    if ($("#laporanDivisiMenu")) $("#laporanDivisiMenu").hidden = true;
+    if ($("#laporanContent")) $("#laporanContent").hidden = false;
+    renderSheetGrid();
+  } else {
+    switchTab("input");
+  }
+  openModal(d._editId || null, d.type || "reels", d._context || "draft");
+}
+
+function discardInsightDraft() {
+  localStorage.removeItem(LS_FORMDRAFT);
+  renderResumeBanners();
+  toast("Draft dibuang", "");
+}
+
+function resumePlanDraft() {
+  const d = loadJSON(LS_PLAN_DRAFT, null);
+  if (!d) return;
+
+  switchTab("planner");
+  if (d.divisi) {
+    activeDivisiPlanner = d.divisi;
+    if ($("#plannerDivisiTitle")) $("#plannerDivisiTitle").textContent = "Planner: " + activeDivisiPlanner;
+    if ($("#plannerDivisiMenu")) $("#plannerDivisiMenu").hidden = true;
+    if ($("#plannerContent")) $("#plannerContent").hidden = false;
+    renderPlannerGrid();
+  }
+  openPlanModal(d._editId || null);
+}
+
+function discardPlanDraft() {
+  localStorage.removeItem(LS_PLAN_DRAFT);
+  renderResumeBanners();
+  toast("Draft plan dibuang", "");
+}
+
+function renderResumeBanners() {
+  const bar = $("#draftResumeBar");
+  if (!bar) return;
+
+  const items = [];
+  const insightDraft = loadJSON(LS_FORMDRAFT, null);
+  if (insightDraft) {
+    items.push({
+      key: "insight",
+      label: insightDraft._editId ? "Mengedit insight" : "Insight baru",
+      title: insightDraft.title || "(Tanpa judul)"
+    });
+  }
+  const planDraft = loadJSON(LS_PLAN_DRAFT, null);
+  if (planDraft) {
+    items.push({
+      key: "plan",
+      label: planDraft._editId ? "Mengedit plan" : "Plan baru",
+      title: planDraft.title || "(Tanpa judul)"
+    });
+  }
+
+  if (items.length === 0) {
+    bar.hidden = true;
+    bar.innerHTML = "";
+    return;
+  }
+
+  bar.hidden = false;
+  bar.innerHTML = items.map((it) => `
+    <div class="resume-bar-item">
+      <span>📝 ${it.label}: <strong>${escapeHtml(it.title)}</strong> — belum tersimpan</span>
+      <div class="resume-bar-actions">
+        <button type="button" data-resume="${it.key}">Lanjutkan</button>
+        <button type="button" data-discard="${it.key}">Buang</button>
+      </div>
+    </div>
+  `).join("");
+
+  bar.querySelector('[data-resume="insight"]')?.addEventListener("click", resumeInsightDraft);
+  bar.querySelector('[data-discard="insight"]')?.addEventListener("click", discardInsightDraft);
+  bar.querySelector('[data-resume="plan"]')?.addEventListener("click", resumePlanDraft);
+  bar.querySelector('[data-discard="plan"]')?.addEventListener("click", discardPlanDraft);
+}
+
+/* ==========================================================================
+   12. INIT
    ========================================================================== */
 renderDrafts();
+renderResumeBanners();
