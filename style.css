@@ -1,4 +1,7 @@
-
+/* ==========================================================================
+   REELSIGHT — DESIGN SYSTEM v5
+   Palet: Indigo elektrik + Coral + Mint + Amber · Light & Dark mode
+   ========================================================================== */
 
 /* --------------------------------------------------------------------------
    1. TOKENS (LIGHT MODE — default)
@@ -187,6 +190,34 @@ textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible{
   .brand-name{ display: none; }
   .app-header{ padding: 0 12px; gap: 10px; }
   .tab-btn{ padding: 9px 12px; font-size: 13px; }
+}
+
+/* --------------------------------------------------------------------------
+   4b. RESUME DRAFT BAR (autosave lintas tab / refresh / restart)
+   -------------------------------------------------------------------------- */
+.resume-bar{
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--amber-light); border-bottom: 1px solid color-mix(in srgb, var(--amber) 50%, transparent);
+  padding: 12px 24px; animation: fadeUp .3s var(--ease-out);
+}
+.resume-bar-item{
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13.5px; color: var(--ink);
+}
+.resume-bar-item strong{ color: var(--primary-dark); }
+.resume-bar-actions{ display: flex; gap: 8px; flex-shrink: 0; }
+.resume-bar-actions button{
+  padding: 6px 14px; border-radius: var(--radius-pill); font-size: 12.5px; font-weight: 700;
+  transition: transform .15s var(--ease-out), opacity .2s ease;
+}
+.resume-bar-actions button[data-resume]{ background: var(--primary); color: #fff; }
+.resume-bar-actions button[data-discard]{ background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+.resume-bar-actions button:hover{ transform: translateY(-1px); }
+.resume-bar-actions button[data-discard]:hover{ opacity: .8; }
+
+@media (max-width: 600px){
+  .resume-bar{ padding: 10px 16px; }
+  .resume-bar-item{ flex-direction: column; align-items: flex-start; }
 }
 
 /* --------------------------------------------------------------------------
